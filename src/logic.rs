@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, path::PathBuf};
 use tokio::time::Duration;
 
-const RAW_CACHE_FILE: &str = "tfr_cache.json";
-const MATCHED_CACHE_FILE: &str = "tfr_matches.json";
+const RAW_EVENT_CACHE: &str = "tfr_cache.json";
+const MATCHED_EVENT_CACHE: &str = "tfr_matches.json";
 
-const JSON_FEED_URL: &str = "https://tfr.faa.gov/tfrapi/exportTfrList";
-const DETAIL_URL_TEMPLATE: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId={}";
+const JSON_FEED_TFR_URL: &str = "https://tfr.faa.gov/tfrapi/exportTfrList";
+const NOTAM_DETAIL_URL: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId={}";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
+pub struct TFREvent {
     pub notam_id: String,
     #[serde(default)]
     pub description: String,
@@ -23,11 +23,11 @@ pub struct Event {
     #[serde(default)]
     pub r#type: Option<String>,
     #[serde(default)]
-    pub parsed: Option<NotamDetail>,
+    pub parsed: Option<TFREventDetail>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct NotamDetail {
+pub struct TFREventDetail {
     pub notam_id: Option<String>,
     pub issue_date: String,
     pub location: String,
@@ -49,34 +49,29 @@ pub struct Airspace {
     pub effective: Vec<String>,
 }
 
-/// Downloads the latest JSON feed from FAA and returns list of events.
-pub async fn download_json_feed(client: &Client) -> Result<Vec<Event>> {
-    let resp = client.get(JSON_FEED_URL).send().await?;
-    let json = resp.json::<Vec<Event>>().await?;
+pub async fn download_json_feed(client: &Client) -> Result<Vec<TFREvent>> {
+    let resp = client.get(JSON_FEED_TFR_URL).send().await?;
+    let json = resp.json::<Vec<TFREvent>>().await?;
     Ok(json)
 }
 
-/// Loads raw event cache from disk. Returns empty Vec on error or missing file.
-pub fn load_raw_cache() -> Vec<Event> {
-    read_cache_file(RAW_CACHE_FILE)
+pub fn load_raw_cache() -> Vec<TFREvent> {
+    read_cache_file(RAW_EVENT_CACHE)
 }
 
-/// Saves raw event cache to disk.
-pub fn save_raw_cache(data: &[Event]) -> Result<()> {
-    write_cache_file(RAW_CACHE_FILE, data)
+pub fn save_raw_cache(data: &[TFREvent]) -> Result<()> {
+    write_cache_file(RAW_EVENT_CACHE, data)
 }
 
-/// Loads matched event cache from disk. Returns empty Vec on error or missing file.
-pub fn load_matched_cache() -> Vec<Event> {
-    read_cache_file(MATCHED_CACHE_FILE)
+pub fn load_matched_cache() -> Vec<TFREvent> {
+    read_cache_file(MATCHED_EVENT_CACHE)
 }
 
-/// Saves matched event cache to disk.
-pub fn save_matched_cache(data: &[Event]) -> Result<()> {
-    write_cache_file(MATCHED_CACHE_FILE, data)
+pub fn save_matched_cache(data: &[TFREvent]) -> Result<()> {
+    write_cache_file(MATCHED_EVENT_CACHE, data)
 }
 
-fn read_cache_file(path: &str) -> Vec<Event> {
+fn read_cache_file(path: &str) -> Vec<TFREvent> {
     let path = PathBuf::from(path);
     if path.exists() {
         match fs::read_to_string(&path) {
@@ -94,22 +89,27 @@ fn read_cache_file(path: &str) -> Vec<Event> {
     }
 }
 
-fn write_cache_file(path: &str, data: &[Event]) -> Result<()> {
+fn write_cache_file(path: &str, data: &[TFREvent]) -> Result<()> {
     let serialized = serde_json::to_string_pretty(data)?;
     fs::write(path, serialized)?;
     Ok(())
 }
 
-/// Filters events for those with type "SECURITY"
-pub fn get_security_events(data: &[Event]) -> Vec<Event> {
+/// event type "SECURITY"
+pub fn get_filtered_events(data: &[TFREvent]) -> Vec<TFREvent> {
     data.iter()
-        .filter(|e| e.r#type.as_deref().unwrap_or("").eq_ignore_ascii_case("SECURITY"))
+        .filter(|e| {
+            e.r#type
+                .as_deref()
+                .unwrap_or("")
+                .eq_ignore_ascii_case("SECURITY")
+        })
         .cloned()
         .collect()
 }
 
-/// Returns events in `current` not present in `cached` by NOTAM ID.
-pub fn get_new_events(current: &[Event], cached: &[Event]) -> Vec<Event> {
+/// events since we last checked, indexed by notam_id
+pub fn get_new_events(current: &[TFREvent], cached: &[TFREvent]) -> Vec<TFREvent> {
     let cached_ids: HashSet<_> = cached.iter().map(|e| &e.notam_id).collect();
     current
         .iter()
@@ -118,14 +118,14 @@ pub fn get_new_events(current: &[Event], cached: &[Event]) -> Vec<Event> {
         .collect()
 }
 
-/// Fetches detailed NOTAM HTML page by ID.
+/// NOTAM detail page
 pub async fn fetch_detail_page(client: &Client, notam_id: &str) -> Result<String> {
-    let url = DETAIL_URL_TEMPLATE.replace("{}", notam_id);
+    let url = NOTAM_DETAIL_URL.replace("{}", notam_id);
     let resp = client.get(&url).send().await?.text().await?;
     Ok(resp)
 }
 
-/// Loads keyword list from a file (one per line), or empty vec if file missing.
+/// keyword search from text file (TODO)
 pub fn load_keywords(path: Option<&str>) -> Vec<String> {
     if let Some(path) = path {
         let p = PathBuf::from(path);
@@ -142,17 +142,16 @@ pub fn load_keywords(path: Option<&str>) -> Vec<String> {
     Vec::new()
 }
 
-/// Checks if HTML text contains any of the keywords (case insensitive).
-pub fn event_matches_criteria(html_text: &str, keywords: &[String]) -> bool {
-    if keywords.is_empty() {
-        return true;
-    }
-    let lower = html_text.to_lowercase();
-    keywords.iter().any(|kw| lower.contains(kw))
-}
+// pub fn event_matches_criteria(html_text: &str, keywords: &[String]) -> bool {
+//     if keywords.is_empty() {
+//         return true;
+//     }
+//     let lower = html_text.to_lowercase();
+//     keywords.iter().any(|kw| lower.contains(kw))
+// }
 
 /// Sends desktop notification for a single event.
-pub fn notify_event(event: &Event) {
+pub fn notify_event(event: &TFREvent) {
     let mut title = format!("New TFR: {}", event.notam_id);
 
     if let Some(parsed) = &event.parsed {
@@ -187,8 +186,8 @@ pub fn notify_event(event: &Event) {
     }
 }
 
-/// Sends desktop notification for multiple events.
-pub fn notify_batch_event(events: &[Event]) {
+/// Desktop notification for multiple events
+pub fn notify_batch_event(events: &[TFREvent]) {
     let mut body = String::new();
     for e in events {
         if let Some(parsed) = &e.parsed {
@@ -199,7 +198,11 @@ pub fn notify_batch_event(events: &[Event]) {
             };
             body.push_str(&format!("* {}: {}\n", loc, parsed.reason));
         } else {
-            body.push_str(&format!("* {}: {}\n", e.location.clone().unwrap_or_default(), e.description));
+            body.push_str(&format!(
+                "* {}: {}\n",
+                e.location.clone().unwrap_or_default(),
+                e.description
+            ));
         }
     }
 
@@ -211,19 +214,18 @@ pub fn notify_batch_event(events: &[Event]) {
         .show();
 }
 
-
-async fn process_feed(keywords: &[String], notify: bool) -> Result<Vec<Event>> {
-    use log::{info, debug, error};
+async fn process_feed(keywords: &[String], notify: bool) -> Result<Vec<TFREvent>> {
+    use log::{debug, error, info};
 
     let client = Client::new();
 
-    info!("--- Checking feed ---");
+    debug!("Check feed");
     let current_data = download_json_feed(&client).await?;
-    debug!("Downloaded {} total items", current_data.len());
+    info!("Downloaded {} total items", current_data.len());
 
     let cached_data = load_raw_cache();
-    let current = get_security_events(&current_data);
-    let cached = get_security_events(&cached_data);
+    let current = get_filtered_events(&current_data);
+    let cached = get_filtered_events(&cached_data);
     let new_events = get_new_events(&current, &cached);
 
     let mut matched_cache = load_matched_cache();
@@ -250,10 +252,10 @@ async fn process_feed(keywords: &[String], notify: bool) -> Result<Vec<Event>> {
                         parsed.other_info,
                         parsed.airspace.center,
                         parsed.airspace.altitude
-                    ).to_lowercase();
+                    )
+                    .to_lowercase();
 
-                    if keywords.is_empty()
-                        || keywords.iter().any(|kw| searchable_text.contains(kw))
+                    if keywords.is_empty() || keywords.iter().any(|kw| searchable_text.contains(kw))
                     {
                         info!("Event matches criteria: {}", event.notam_id);
                         new_matches.push(event.clone());
@@ -287,7 +289,7 @@ pub async fn run_monitor(keywords: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub async fn check_feed() -> Result<Vec<Event>> {
+pub async fn check_feed() -> Result<Vec<TFREvent>> {
     let keywords = load_keywords(None);
     process_feed(&keywords, false).await
 }
@@ -302,17 +304,22 @@ pub async fn run_periodic(keywords: Vec<String>, interval_minutes: u64) -> Resul
 }
 
 fn extract_text(element: &scraper::ElementRef) -> String {
-    element.text().map(|t| t.trim()).filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ")
+    element
+        .text()
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Parses detailed NOTAM HTML into structured NotamDetail.
-pub fn parse_notam_html(html_text: &str) -> NotamDetail {
+pub fn parse_notam_html(html_text: &str) -> TFREventDetail {
     let document = Html::parse_document(html_text);
     let table_selector = Selector::parse("table").unwrap();
     let tr_selector = Selector::parse("tr").unwrap();
     let td_selector = Selector::parse("td").unwrap();
 
-    let mut detail = NotamDetail::default();
+    let mut detail = TFREventDetail::default();
 
     for table in document.select(&table_selector) {
         let table_text = extract_text(&table);
@@ -331,7 +338,9 @@ pub fn parse_notam_html(html_text: &str) -> NotamDetail {
             for row in table.select(&tr_selector) {
                 let row_text = extract_text(&row);
                 let tds: Vec<_> = row.select(&td_selector).collect();
-                if tds.is_empty() { continue; }
+                if tds.is_empty() {
+                    continue;
+                }
 
                 if row_text.contains("Issue Date") {
                     detail.issue_date = extract_text(tds.last().unwrap());
@@ -362,7 +371,9 @@ pub fn parse_notam_html(html_text: &str) -> NotamDetail {
             for row in table.select(&tr_selector) {
                 let row_text = extract_text(&row);
                 let tds: Vec<_> = row.select(&td_selector).collect();
-                if tds.is_empty() { continue; }
+                if tds.is_empty() {
+                    continue;
+                }
 
                 if row_text.contains("Center:") {
                     detail.airspace.center = extract_text(tds.last().unwrap());
@@ -374,7 +385,10 @@ pub fn parse_notam_html(html_text: &str) -> NotamDetail {
                     detail.airspace.altitude = extract_text(tds.last().unwrap());
                 }
                 if row_text.contains("Effective Date") {
-                    detail.airspace.effective.push(extract_text(tds.last().unwrap()));
+                    detail
+                        .airspace
+                        .effective
+                        .push(extract_text(tds.last().unwrap()));
                 }
             }
         }
@@ -395,7 +409,7 @@ pub fn parse_notam_html(html_text: &str) -> NotamDetail {
 
 /// Summarizes matched events for today
 /// Returns (today_matches_count, unique_cities_count).
-pub fn summarize_matched_events(events: &[Event]) -> (usize, usize) {
+pub fn summarize_matched_events(events: &[TFREvent]) -> (usize, usize) {
     let today = chrono::Utc::now().date_naive();
     let mut cities = HashSet::new();
     let mut today_count = 0;
@@ -416,9 +430,9 @@ pub fn summarize_matched_events(events: &[Event]) -> (usize, usize) {
     (today_count, cities.len())
 }
 
-use chrono::{DateTime, Utc, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 
-pub fn load_matched_cache_sorted() -> Vec<Event> {
+pub fn load_matched_cache_sorted() -> Vec<TFREvent> {
     let mut events = load_matched_cache();
     // Sort newest first by issue_date or fallback
     events.sort_by(|a, b| {
