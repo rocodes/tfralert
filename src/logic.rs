@@ -9,18 +9,16 @@ const RAW_EVENT_CACHE: &str = "tfr_cache.json";
 const MATCHED_EVENT_CACHE: &str = "tfr_matches.json";
 
 const JSON_FEED_TFR_URL: &str = "https://tfr.faa.gov/tfrapi/exportTfrList";
-const NOTAM_DETAIL_URL: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId={}";
+pub const NOTAM_DETAIL_URL: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId=";
+// todo customization
+const ALTITUDE_PARAMS: &str = "up to and including 400 feet AGL";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawTFREvent {
     pub notam_id: String,
-    #[serde(default)]
     pub description: String,
-    #[serde(default)]
     pub location: Option<String>,
-    #[serde(default)]
     pub r#type: Option<String>,
-    #[serde(default)]
     pub parsed: Option<ParsedTFREvent>,
 }
 
@@ -124,7 +122,7 @@ pub fn get_new_events(current: &[RawTFREvent], cached: &[RawTFREvent]) -> Vec<Ra
 
 /// NOTAM detail page
 pub async fn fetch_detail_page(client: &Client, notam_id: &str) -> Result<String> {
-    let url = NOTAM_DETAIL_URL.replace("{}", notam_id);
+    let url = format!("{}{}", NOTAM_DETAIL_URL, notam_id);
     let resp = client.get(&url).send().await?.text().await?;
     Ok(resp)
 }
@@ -197,7 +195,11 @@ async fn process_feed(keywords: &[String]) -> Result<Vec<ParsedTFREvent>> {
                     )
                     .to_lowercase();
 
-                    if keywords.is_empty() || keywords.iter().any(|kw| searchable_text.contains(kw))
+                    if keywords.is_empty()
+                        || keywords.iter().any(|kw| {
+                            searchable_text.contains(kw)
+                                || searchable_text.contains(ALTITUDE_PARAMS)
+                        })
                     {
                         info!("Event matches criteria: {}", event.notam_id);
                         new_matches
@@ -226,7 +228,7 @@ pub async fn check_feed() -> Result<Vec<ParsedTFREvent>> {
 fn extract_text(element: &scraper::ElementRef) -> String {
     element
         .text()
-        .map(|t| t.trim())
+        .map(|t| t.trim().replace("\\r", "").replace("\\n", ""))
         .filter(|t| !t.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
@@ -244,13 +246,19 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
     for table in document.select(&table_selector) {
         let table_text = extract_text(&table);
 
-        // Metadata Table (Issue Date, NOTAM ID, etc.)
+        // Metadata table (date, notam id)
         if table_text.contains("Issue Date") {
             if table_text.contains("NOTAM Number") {
                 if let Some(first_row) = table.select(&tr_selector).next() {
                     let tds: Vec<_> = first_row.select(&td_selector).collect();
                     if let Some(last) = tds.last() {
-                        detail.notam_id = extract_text(&last);
+                        let font_selector = Selector::parse("font").unwrap();
+                        if let Some(font) = last.select(&font_selector).next() {
+                            detail.notam_id = extract_text(&font)
+                                .replace("FDC", "")
+                                .trim_ascii()
+                                .to_string();
+                        }
                     }
                 }
             }
@@ -286,7 +294,7 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
             }
         }
 
-        // Airspace Definition Table
+        // parse "airspace" table for altitude restrictions
         if table_text.contains("Airspace Definition") {
             for row in table.select(&tr_selector) {
                 let row_text = extract_text(&row);
@@ -313,12 +321,10 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
             }
         }
 
-        // Operating Restrictions and Requirements Table
         if table_text.contains("Operating Restrictions and Requirements") {
             detail.restrictions = table_text.clone();
         }
 
-        // Other Information Table
         if table_text.contains("Other Information") {
             detail.other_info = table_text.clone();
         }
@@ -327,8 +333,8 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
     detail
 }
 
-/// Summarizes matched events for today
-/// Returns (today_matches_count, unique_cities_count).
+/// Summarize matched events (today_matches_count, unique_cities_count).
+/// TODO (formating/parsing)
 pub fn summarize_matched_events(events: &[ParsedTFREvent]) -> (usize, usize) {
     let today = chrono::Utc::now().date_naive();
     let mut cities = HashSet::new();
@@ -376,7 +382,8 @@ pub async fn refresh_tfr_results() -> Result<crate::FeedResult> {
     info!("{cached_match_count} cached");
 
     if let Ok(new_matches) = check_feed().await {
-        for e in new_matches.iter() {
+        // reverse to avoid oldest first
+        for e in new_matches.iter().rev() {
             if !tfr_matches.iter().any(|m| m.notam_id == e.notam_id) {
                 tfr_matches.insert(0, e.clone());
             }
@@ -384,8 +391,9 @@ pub async fn refresh_tfr_results() -> Result<crate::FeedResult> {
         save_matched_cache(&tfr_matches)?;
     }
 
+    // FIXME (totals/ summaries)
     let (today_total, city_count) = summarize_matched_events(&tfr_matches);
-    // let new_since_last = today_total - cached_match_count; // TODO
+    // let new_since_last = today_total - cached_match_count;
 
     Ok(crate::FeedResult {
         events: tfr_matches,
