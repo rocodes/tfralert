@@ -1,11 +1,10 @@
 [package]
-name = "tfralert"
+name = "tfr_alert"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dioxus = "0.6.3"
-dioxus-desktop = "0.6.3"
+dioxus = { version = "0.7.0-rc.2", features = ["desktop"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
@@ -13,25 +12,14 @@ serde_json = "1.0"
 notify-rust = "4"
 anyhow = "1"
 log = "0.4"
-env_logger = "0.11"
 scraper = "0.24.0"
 chrono = "0.4.42"
+async-std = "1.13.2"
 
 [features]
 default = ["web"]
 web = ["dioxus/web"]
-desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
-
-[profile]
 
 [profile.wasm-dev]
 inherits = "dev"
 opt-level = 1
-
-[profile.server-dev]
-inherits = "dev"
-
-[profile.android-dev]
-inherits = "dev"
-
