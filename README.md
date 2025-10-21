@@ -11,6 +11,7 @@ Collect and filter TFRs/NOTAMs. Is it a good time to be out flying drones? Let's
 - **Best effort**: Data as fresh as `tfr.faa.gov` provides it. For a complete list of all TFRs by category, see that original JSON feed.
 
 ![Screenshot of app UI](screenshots/tfr_ui.png)
+![Screenshot of system notificatoin](screenshots/notif.png)
 
 ### Installation
 **Under Construction**: Native linux support; Not yet ready for cross-platform installation. These instructions will be updated.
