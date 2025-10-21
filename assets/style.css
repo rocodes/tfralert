@@ -1,46 +1,110 @@
 body {
-    font-family: sans-serif;
+    font-family: system-ui, sans-serif;
     background-color: #f8f9fa;
     color: #111;
     padding: 1rem;
+    margin: 0;
 }
 
 .app-container {
-    max-width: 600px;
-    margin: auto;
+    width: 90%;
+    min-width: 400px;
+    margin: 0 auto;    
+    box-sizing: border-box;
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-h1 {
-    color: #1E40AF;
-    margin-bottom: 0.5rem;
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h2 {
+    color: #0056b3;
+    margin-top: 0;
+    margin-bottom: 0.75rem;
 }
 
 .summary {
+    font-weight: 500;
+    margin: 0;
+}
+
+ul.event-list li.event-item {
+    display: flex;
+    padding: 0.4rem;
+    border-bottom: 1px solid #eee;
+    align-items: flex-start;
+    background-color: #fff;
+    /* todo: if clickable/expandable */
+    /* box-sizing: border-box; */
+    /* border: 1px solid #ddd; */
+    /* border-radius: 6px; */
+    /* transition: background-color 0.2s ease, box-shadow 0.2s ease; */
+}
+
+ul.event-list li.event-item strong {
+    color: #0056b3;
+}
+
+/* todo: if clickable/expandable */
+/* ul.event-list li.event-item:hover {
+    background-color: #f5f8ff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+} */
+
+.notam-link {
     font-weight: bold;
-    margin-bottom: 1rem;
+    color: #1E40AF;
+    text-decoration: none;
+    cursor: pointer;
+    padding-right: 1rem;
 }
 
-ul.event-list {
-    list-style: none;
-    padding: 0;
+.notam-link:hover {
+    text-decoration: underline;
+    color: #0056b3;
 }
 
-ul.event-list li {
-    padding: 0.25rem 0;
-    border-bottom: 1px solid #ddd;
+/* todo: if expandable/clickable
+.event-details {
+    border-top: 1px solid #eee;
+    line-height: 1.4;
 }
+
+.event-details {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.25s ease-out, opacity 0.25s ease-out;
+    opacity: 0;
+}
+
+.event-item.expanded .event-details {
+    max-height: 500px;
+    opacity: 1;
+} */
 
 .refresh-button {
-  background-color: #007bff;
+  background-color: #0056b3;
   color: white;
   border: none;
   padding: 0.4em 0.8em;
-  margin: 0.5em 0;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .refresh-button:hover {
-  background-color: #0056b3;
+  background-color: #007bff;
+}
+
+.footer {
+    margin-top: 1.5rem;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: #555;
 }
