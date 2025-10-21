@@ -1,14 +1,16 @@
 ## TFRAlert
-Alerts for new TFRs. Is now a good time to fly that drone? Let's check first.
+Collect and filter TFRs/NOTAMs. Is it a good time to be out flying drones? Let's find out.
 
-- TFRs/NOTAMs that restrict flights under 400ft AGL
+- TFRs/NOTAMs that restrict flights under 400ft AGL with specific keyword filtering
 - Details of matching results are saved to a json file
-- List is refreshed periodically
+- (Soon) periodic list refresh
 
+- **Toy project**: This is an educational project and should not replace the due diligence practices of anyone actually operating any aircraft! See LICENSE.md.
 - **Privacy note**: Makes periodic web requests to `tfr.faa.gov`. Use from behind a VPN or proxy or from a public WIFI network if that's a concern.
 - **The vibes the vibes the vibes**: Heavily AI-assisted code generation.
 - **Best effort**: Data as fresh as `tfr.faa.gov` provides it. For a complete list of all TFRs by category, see that original JSON feed.
-- **Work in progress**: Weekend project that's still a very rough draft. Intended to stay simple/minimal-effort, but PRs are welcome.
+
+![Screenshot of app UI](screenshots/tfr_ui.png)
 
 ### Installation
 **Under Construction**: Native linux support; Not yet ready for cross-platform installation. These instructions will be updated.
@@ -22,24 +24,4 @@ Clone repo. Install Rust toolchain and [Dioxus](https://dioxuslabs.com/). Note t
 
 Use `cargo run` to test local changes. `dx serve` (the dioxus-cli) is not currently supported but is planned.
 
-### Signing and notarizing macOS builds (TODO)
-(TODO: dioxus integrated macos signing)
-notarytool profile:
-```
-xcrun notarytool store-credentials "TFRAlertProfile" \
-  --apple-id "signer-apple-id@example.com" \
-  --team-id "TEAMID" \
-  --password "app-specific-password"
-```
-
-export it:
-```
-export NOTARY_KEYCHAIN_PROFILE=TFRAlertProfile
-```
-
-sign and notarize:
-
-```
-export MACOS_IDENTITY="Developer ID Application: Signer Name (TEAMID)"
-make notarize-all
-```
+### Signing and notarizing macOS builds: TODO
