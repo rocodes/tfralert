@@ -1,8 +1,7 @@
 use dioxus::prelude::*;
-use notify_rust::Notification;
-use tokio::time::{Duration, interval};
 
 mod logic;
+mod notify;
 
 fn main() {
     dioxus::launch(app);
@@ -10,63 +9,30 @@ fn main() {
 
 #[derive(Debug, Clone, Default)]
 struct FeedResult {
-    events: Vec<logic::TFREvent>,
+    events: Vec<logic::ParsedTFREvent>,
     unseen_count: usize,
     today_count: usize,
     city_today_count: usize,
 }
 
+// not for parsing
+const NOTAM_DETAIL_URL_PRETTY: &str = "https://tfr.faa.gov/tfr3/?page=detail_";
 const MATCHES: &str = "tfr_matches.json";
-const REFRESH_SECONDS: u64 = 600;
+const REFRESH_SECONDS: u64 = 600; // todo configurable
 
 #[component]
 pub fn app() -> Element {
     let mut feedresult = use_action(|| async {
-        let mut tfr_matches = logic::load_matched_cache_sorted();
-        let cached_match_count = tfr_matches.len();
-
-        // Check for new matches
-        if let Ok(new_matches) = logic::check_feed().await {
-            if !new_matches.is_empty() {
-                for e in new_matches.iter() {
-                    // TODO: some NOTAMs refer to or update the ID of another NOTAM
-                    if !tfr_matches.iter().any(|m| m.notam_id == e.notam_id) {
-                        tfr_matches.insert(0, e.clone());
-                    }
-                }
-
-                // Notify for new matches (TODO)
-                for entry in &new_matches {
-                    #[cfg(not(target_os = "macos"))]
-                    let _ = Notification::new()
-                        .summary("New Feed Match")
-                        .body(&format!("NOTAM {}", entry.notam_id))
-                        .show();
-                }
-            }
-        }
-
-        let (today_total, city_count) = logic::summarize_matched_events(&tfr_matches);
-        let new_since_last = today_total - cached_match_count;
-
-        dioxus::Ok(FeedResult {
-            events: tfr_matches,
-            unseen_count: new_since_last,
-            today_count: today_total,
-            city_today_count: city_count,
-        })
+        logic::refresh_tfr_results()
+            .await
+            .map_err(dioxus::Error::from)
+            .into()
     });
-    // Background refresh every REFRESH_INTERVAL_SECS
+
     use_effect({
         let mut feedresult = feedresult.clone();
         move || {
-            spawn(async move {
-                let mut ticker = interval(Duration::from_secs(REFRESH_SECONDS));
-                loop {
-                    ticker.tick().await;
-                    feedresult.call();
-                }
-            });
+            feedresult.call();
         }
     });
 
@@ -76,44 +42,87 @@ pub fn app() -> Element {
 
     let result: FeedResult = signal();
 
-    let event_word = if result.unseen_count == 1 {
-        "event"
-    } else {
-        "events"
-    };
-    let city_word = if result.city_today_count == 1 {
-        "city"
-    } else {
-        "cities"
-    };
+    // FIXME
+    // let event_word = if result.unseen_count == 1 {
+    //     "event"
+    // } else {
+    //     "events"
+    // };
+    // let city_word = if result.city_today_count == 1 {
+    //     "city"
+    // } else {
+    //     "cities"
+    // };
+
+    let result_for_notif = result.clone();
+
+    // TODO
+    tokio::task::spawn_blocking(move || {
+        notify::notify(&result_for_notif.events);
+    });
 
     let event_items = result
         .events
         .iter()
         .map(|event| {
+            // TODO
+            //let mut expanded = use_signal(|| false);
+
             let notam_id = &event.notam_id;
-            let city = event
-                .parsed
-                .as_ref()
-                .map(|p| p.location.clone())
-                .unwrap_or_else(|| "(Unknown)".to_string());
+            let city = &event.location;
+            let date = &event.issue_date;
+            // let reason = &event.reason;
+            // let restrictions = &event.restrictions;
+
+            let url = format!(
+                "{}{}",
+                NOTAM_DETAIL_URL_PRETTY,
+                &event.notam_id.replace("/", "_")
+            );
 
             rsx! {
-                li { class: "event-item",
-                    strong { "{notam_id}" }
-                    span { " — {city}" }
+                    li { class: "event-item",
+                    // TODO expansion on click
+                    // onclick: move |_| expanded.set(!expanded()),
+
+                    div {
+                        a {
+                            class: "notam-link",
+                            href: "{url}",
+                            target: "_blank",
+                            "{notam_id}" }
+                        span { "{date} {city}" }
+                    }
+                    // TODO: these aren't always filled out, show only if more info
+                    // if expanded() {
+                    //     div { class: "event-details",
+                    //         p { "Reason: {reason}" }
+                    //         p { "Restrictions: {restrictions}" }
+                    //     }
+                    // }
                 }
             }
             .unwrap()
         })
         .collect::<Vec<_>>();
 
-    rsx! {
-        div { class: "app-container",
-            h1 { "TFRAlert" }
+    // TODO
+    // loop {
+    //         sleep(tokio::time::Duration::from_secs(REFRESH_SECONDS));
+    //         feedresult.call();
+    //     }
 
+    rsx! {
+        document::Stylesheet { href: asset!("/assets/style.css") }
+        div { class: "app-container",
+            h2 { "TFRAlert" }
+
+            div { class: "header-row",
+
+            // TODO: this will show since the user has kept the feed
+            // todo: need to save/export
             p { class: "summary",
-                "{result.unseen_count} new {event_word}. Today {result.today_count} total in {result.city_today_count} {city_word}."
+                "Showing {event_items.len()} items (type: Security, altitude: 0-400 ft AGL)"
             }
 
             button {
@@ -121,13 +130,16 @@ pub fn app() -> Element {
                 onclick: move |_| feedresult.call(),
                 "Refresh"
             }
+        }
 
             ul { class: "event-list",
+            // items display oldest to newest unless we reverse
+            // todo: better date and location parsing to group items
                 {event_items.into_iter()}
             }
 
             p { style: "margin-top: 1em; font-style: italic;",
-                "For full list of events see {MATCHES}"
+                "For details of all events see {MATCHES}"
             }
         }
     }
