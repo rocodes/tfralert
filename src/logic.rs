@@ -384,28 +384,35 @@ fn parse_date(date_str: &str) -> Option<DateTime<Utc>> {
 }
 
 pub async fn refresh_tfr_results() -> Result<crate::FeedResult> {
-    // TODO sorting by date or city/location
-    let mut tfr_matches = load_matched_cache();
-    let cached_match_count = tfr_matches.len();
-    info!("{cached_match_count} cached");
+    use log::info;
 
-    if let Ok(new_matches) = check_feed().await {
-        // reverse to avoid oldest first
-        for e in new_matches.iter().rev() {
-            if !tfr_matches.iter().any(|m| m.notam_id == e.notam_id) {
-                tfr_matches.insert(0, e.clone());
-            }
+    // Load previously seen events
+    let mut seen_matches = load_matched_cache();
+    let prev_count = seen_matches.len();
+
+    // Fetch fresh data from FAA
+    let new_matches = check_feed().await.unwrap_or_default();
+
+    let mut unseen = Vec::new();
+    for e in new_matches.iter().rev() {
+        if !seen_matches.iter().any(|m| m.notam_id == e.notam_id) {
+            unseen.push(e.clone());
+            seen_matches.insert(0, e.clone()); // prepend new ones
         }
-        save_matched_cache(&tfr_matches)?;
     }
 
-    // FIXME (totals/ summaries)
-    let (today_total, city_count) = summarize_matched_events(&tfr_matches);
-    // let new_since_last = today_total - cached_match_count;
+    save_matched_cache(&seen_matches)?;
+    info!(
+        "Cache updated: {} total, {} new",
+        seen_matches.len(),
+        unseen.len()
+    );
+
+    let (today_total, city_count) = summarize_matched_events(&seen_matches);
 
     Ok(crate::FeedResult {
-        events: tfr_matches,
-        unseen_count: 0, // todo
+        events: seen_matches,
+        unseen_count: unseen.len(),
         today_count: today_total,
         city_today_count: city_count,
     })

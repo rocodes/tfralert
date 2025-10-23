@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dioxus = { version = "0.7.0-rc.2", features = ["desktop"] }
+dioxus = { version = "0.6.3", features = ["desktop"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
@@ -23,3 +23,9 @@ web = ["dioxus/web"]
 [profile.wasm-dev]
 inherits = "dev"
 opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
