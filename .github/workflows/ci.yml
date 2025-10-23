@@ -69,18 +69,18 @@ jobs:
           - name: Linux
             rust_target: x86_64-unknown-linux-gnu
             make_target: build-linux
-          - name: macOS (Intel)
-            rust_target: x86_64-apple-darwin
-            make_target: build-macos
-          - name: macOS (ARM)
-            rust_target: aarch64-apple-darwin
-            make_target: build-macos-arm
+          # - name: macOS (Intel)
+          #   rust_target: x86_64-apple-darwin
+          #   make_target: build-macos
+          # - name: macOS (ARM)
+          #   rust_target: aarch64-apple-darwin
+          #   make_target: build-macos-arm
           - name: Windows
             rust_target: x86_64-pc-windows-gnu
             make_target: build-windows
-          - name: WebAssembly
-            rust_target: wasm32-unknown-unknown
-            make_target: build-wasm
+          # - name: WebAssembly
+          #   rust_target: wasm32-unknown-unknown
+          #   make_target: build-wasm
     steps:
       - name: Install system dependencies
         run: |
@@ -99,6 +99,9 @@ jobs:
             librsvg2-dev \
             gcc-mingw-w64-x86-64 \
             clang
+      - name: Install windows dependencies if required
+        if: ${{ matrix.name == 'Windows'}}
+        run: make deps-windows
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:

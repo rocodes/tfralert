@@ -33,6 +33,11 @@ targets:
 	rustup target add $(WINDOWS_TARGET)
 	rustup target add $(WASM_TARGET)
 
+# windows is missing dlltool
+.PHONY:	deps-windows
+deps-windows:
+	sudo apt install g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64 -y
+
 build-linux:
 	cargo build --release --target $(LINUX_TARGET)
 
@@ -49,7 +54,8 @@ build-windows:
 build-wasm:
 	dioxus build --platform web --release
 
-build-all: targets build-linux build-macos build-macos-arm build-windows build-wasm
+# build-macos build-macos-arm
+build-all: targets build-linux build-windows build-wasm
 
 # macOS Signing (WIP)
 
