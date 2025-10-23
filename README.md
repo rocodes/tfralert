@@ -15,12 +15,27 @@ Collect and filter TFRs/NOTAMs. Is it a good time to be out flying drones? Let's
 ![Screenshot of system notificatoin](screenshots/notif.png)
 
 ### Installation
-Installation via prebuilt desktop binaries will be supported for windows, mac(silicon and intel), and linux.
+Installation via prebuilt desktop binaries will be supported for windows, mac(silicon and intel), and linux. Until prebuilt binaries are available and tested, build from source using the instructions below.
 
-Build from source: See Development below for setup instructions. Install desired toolchain target, per Makefile, then run `make build-$TARGET`.
+**Build from source**: See Development below for setup instructions. Then, install desired target via `rustup target add $TARGET`, or run `make targets` to install all targets.
+
+Available targets:
+
+```
+LINUX_TARGET = x86_64-unknown-linux-gnu
+MACOS_TARGET = x86_64-apple-darwin
+MACOS_ARM_TARGET = aarch64-apple-darwin
+WINDOWS_TARGET = x86_64-pc-windows-gnu
+WASM_TARGET = wasm32-unknown-unknown
+```
+
+To build for a single target, run `make build-$target`, where target is one of:
+`linux`, `macos`, `macos-arm`, `windows`, `wasm`.
+
+To build for all targets, run `make build-all`.
 
 ### Development
-Clone repo. Install Rust toolchain and the stable version of [Dioxus](https://dioxuslabs.com/), 0.6.3, via `cargo binstall dioxus-cli`.
+Clone repo. Install Rust toolchain, `binstall`, via `cargo install binstall`, and the stable version of [Dioxus](https://dioxuslabs.com/), 0.6.3, via `cargo binstall dioxus-cli`.
 
 `dx serve --platform desktop` will show a localhost browser-based version of the application. `cargo run` will run the application on your current platform.
 
