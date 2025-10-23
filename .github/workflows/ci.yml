@@ -13,15 +13,16 @@ jobs:
     steps:
       - name: Install system dependencies
         run: |
-          sudo apt update && sudo apt install -y
-            libwebkit2gtk-4.1-dev
-            build-essential
-            curl
-            wget
-            file
-            libxdo-dev
-            libssl-dev
-            libayatana-appindicator3-dev
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
             librsvg2-dev
       # actions/checkout@v4.1.1
       - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
@@ -58,34 +59,68 @@ jobs:
       - run: cargo install cargo-binstall 
       - run: cargo fmt --all --check
 
-  build_wasm:
-    name: build
+  build:
+    name: Build (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            rust_target: x86_64-unknown-linux-gnu
+            make_target: build-linux
+          - name: macOS (Intel)
+            rust_target: x86_64-apple-darwin
+            make_target: build-macos
+          - name: macOS (ARM)
+            rust_target: aarch64-apple-darwin
+            make_target: build-macos-arm
+          - name: Windows
+            rust_target: x86_64-pc-windows-gnu
+            make_target: build-windows
+          - name: WebAssembly
+            rust_target: wasm32-unknown-unknown
+            make_target: build-wasm
     steps:
       - name: Install system dependencies
         run: |
-          sudo apt update && sudo apt install -y
-            libwebkit2gtk-4.1-dev
-            build-essential
-            curl
-            wget
-            file
-            libxdo-dev
-            libssl-dev
-            libayatana-appindicator3-dev
-            librsvg2-dev
-      # actions/checkout@4.1.1
-      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
-        with:
-          persist-credentials: false
-      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-      - uses: dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            pkg-config \
+            make \
+            libssl-dev \
+            libxdo-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            gcc-mingw-w64-x86-64 \
+            clang
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: stable-x86_64-unknown-linux-gnu
-      # Swatinem/rust-cache@v2.8.0
-      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
-      # dtolnay/rust-toolchain@30dc51db75d080812bc4a28ba3f342840b2e7dd7
-      - run: cargo install cargo-binstall
-      - run: cargo binstall dioxus-cli -y
-      - run: cargo build
+          targets: ${{ matrix.rust_target }}
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+      -
+        run: |
+          cargo install cargo-binstall
+          cargo binstall dioxus-cli -y
+      - name: build ${{ matrix.rust_target }}
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          echo "Build $RUST_TARGET (make ${{ matrix.make_target }})"
+          make ${{ matrix.make_target }}
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-build
+          path: |
+            target/${{ matrix.rust_target }}/release/tfralert*
+            dist/**
+            !**/*.dSYM

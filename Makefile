@@ -8,6 +8,7 @@ LINUX_TARGET = x86_64-unknown-linux-gnu
 MACOS_TARGET = x86_64-apple-darwin
 MACOS_ARM_TARGET = aarch64-apple-darwin
 WINDOWS_TARGET = x86_64-pc-windows-gnu
+WASM_TARGET = wasm32-unknown-unknown
 
 # macOS signing and notarization (TODO)
 MACOS_IDENTITY ?=
@@ -30,6 +31,7 @@ targets:
 	rustup target add $(MACOS_TARGET)
 	rustup target add $(MACOS_ARM_TARGET)
 	rustup target add $(WINDOWS_TARGET)
+	rustup target add $(WASM_TARGET)
 
 build-linux:
 	cargo build --release --target $(LINUX_TARGET)
@@ -43,7 +45,11 @@ build-macos-arm:
 build-windows:
 	cargo build --release --target $(WINDOWS_TARGET)
 
-build-all: targets build-linux build-macos build-macos-arm build-windows
+# use dioxus instead of cargo build for wasm
+build-wasm:
+	dioxus build --platform web --release
+
+build-all: targets build-linux build-macos build-macos-arm build-windows build-wasm
 
 # macOS Signing (WIP)
 
