@@ -39,20 +39,23 @@ deps-windows:
 	sudo apt install g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64 -y
 
 build-linux:
-	cargo build --release --target $(LINUX_TARGET)
+	cargo build app --release --target $(LINUX_TARGET)
 
 build-macos:
-	cargo build --release --target $(MACOS_TARGET)
+	cargo build app --release --target $(MACOS_TARGET)
 
 build-macos-arm:
-	cargo build --release --target $(MACOS_ARM_TARGET)
+	cargo build app --release --target $(MACOS_ARM_TARGET)
 
 build-windows:
-	cargo build --release --target $(WINDOWS_TARGET)
+	cargo build app --release --target $(WINDOWS_TARGET)
 
 # use dioxus instead of cargo build for wasm
 build-wasm:
-	dx build --platform web --release
+	dx build --project app --platform web --release
+
+build-bot:
+	cargo build bot --release 
 
 # build-macos build-macos-arm
 build-all: targets build-linux build-windows build-wasm

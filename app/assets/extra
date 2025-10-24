@@ -1,0 +1,49 @@
+<body>
+
+  <!-- BANNER WITH IMAGE -->
+  <div class="banner">
+    <div class="banner-image"></div>
+    <div class="banner-content">
+      <h1>TFRAlert</h1>
+      <p>Showing 43 active Temporary Flight Restrictions (Security, 0–400 ft AGL)</p>
+      <button class="refresh-btn">Refresh Alerts</button>
+    </div>
+  </div>
+
+  <!-- ALERT LIST BELOW BANNER -->
+  <div class="alert-section">
+    <h2>Active Alerts</h2>
+    <div class="alert-list">
+      <div class="alert-item">
+        <span class="alert-id">5/2828</span>
+        <span class="alert-details">October 18, 2025 at 2139 UTC — Mayport, Florida</span>
+        <button class="details-btn">See Details</button>
+      </div>
+      <div class="alert-item">
+        <span class="alert-id">5/2811</span>
+        <span class="alert-details">October 18, 2025 at 1454 UTC — New York, New York</span>
+        <button class="details-btn">See Details</button>
+      </div>
+      <div class="alert-item">
+        <span class="alert-id">5/2809</span>
+        <span class="alert-details">October 18, 2025 at 1454 UTC — Palm Beach, Florida near PALM BEACH VORTAC (PBI)</span>
+        <button class="details-btn">See Details</button>
+      </div>
+      <div class="alert-item">
+        <span class="alert-id">5/2805</span>
+        <span class="alert-details">October 18, 2025 at 1300 UTC — Washington D.C., restricted airspace</span>
+        <button class="details-btn">See Details</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+
+
+    
+              <script>
+                              
+              </script>
+                        </body>
+                        </html>
