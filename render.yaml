@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: tfralertbot
+    env: rust
+    plan: free
+    buildCommand: make build-bot
+    startCommand: make run-bot
+    envVars:
+      - key: MASTODON_BASE_URL
+        value: https://mastodon.social
+      - key: MASTODON_ACCESS_TOKEN
+        sync: false
+      - key: BLUESKY_HANDLE
+        sync: false
+      - key: BLUESKY_PASSWORD
+        sync: false
+
+cronJobs:
+  - name: tfralertbot-cron
+    schedule: "*/10 * * * *"
+    command: ./target/release/bot
