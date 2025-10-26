@@ -1,2 +1,7 @@
 [workspace]
-members = ["app", "core", "bot"]
+members = ["core", "app", "bot"]
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
