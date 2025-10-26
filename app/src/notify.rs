@@ -6,7 +6,7 @@
 
 // You should have received a copy of the GNU General Public License along with TFRAlert. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::logic::ParsedTFREvent;
+use crate::tfr_core::ParsedTFREvent;
 use notify_rust::Notification;
 
 #[derive(Debug)]

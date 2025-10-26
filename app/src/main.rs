@@ -9,8 +9,16 @@
 use async_std::task::sleep;
 use dioxus::prelude::*;
 
-mod logic;
+use tfr_core;
+
 mod notify;
+
+#[derive(Debug, Clone)]
+enum LoadState {
+    Loading,
+    Loaded(tfr_core::FeedResult),
+    Error(String),
+}
 
 fn main() {
     dioxus::launch(app);
@@ -19,21 +27,6 @@ fn main() {
 const NOTAM_DETAIL_URL_PRETTY: &str = "https://tfr.faa.gov/tfr3/?page=detail_";
 const MATCHES: &str = "tfr_matches.json";
 const REFRESH_SECONDS: u64 = 600; // configurable later
-
-#[derive(Debug, Clone)]
-enum LoadState {
-    Loading,
-    Loaded(FeedResult),
-    Error(String),
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct FeedResult {
-    events: Vec<logic::ParsedTFREvent>,
-    unseen_count: usize,
-    today_count: usize,
-    city_today_count: usize,
-}
 
 #[component]
 pub fn app() -> Element {
@@ -46,7 +39,7 @@ pub fn app() -> Element {
         let refresh_counter = refresh_counter();
         move || async move {
             feed_state.set(LoadState::Loading);
-            match logic::refresh_tfr_results().await {
+            match tfr_core::refresh_tfr_results().await {
                 Ok(result) => feed_state.set(LoadState::Loaded(result)),
                 Err(e) => feed_state.set(LoadState::Error(e.to_string())),
             }

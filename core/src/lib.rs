@@ -17,7 +17,10 @@ const RAW_EVENT_CACHE: &str = "tfr_cache.json";
 const MATCHED_EVENT_CACHE: &str = "tfr_matches.json";
 
 const JSON_FEED_TFR_URL: &str = "https://tfr.faa.gov/tfrapi/exportTfrList";
-pub const NOTAM_DETAIL_URL: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId=";
+const NOTAM_DETAIL_URL: &str = "https://tfr.faa.gov/tfrapi/getWebText?notamId=";
+
+// url to display to users; notam requires formatting
+const NOTAM_DETAIL_URL_PRETTY: &str = "https://tfr.faa.gov/tfr3/?page=detail_";
 // todo customization
 const ALTITUDE_PARAMS: &str = "up to and including 400 feet AGL";
 
@@ -44,6 +47,7 @@ pub struct ParsedTFREvent {
     pub restrictions: String,
     pub other_info: String,
     pub description: String,
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -54,7 +58,16 @@ pub struct Airspace {
     pub effective: Vec<String>,
 }
 
-// Trait - they can both be represented as json
+
+#[derive(Debug, Clone, Default)]
+pub struct FeedResult {
+    pub events: Vec<ParsedTFREvent>,
+    pub unseen_count: usize,
+    pub today_count: usize,
+    pub city_today_count: usize,
+}
+
+// All events can be represented in json
 pub trait TFREvent: Serialize + for<'de> Deserialize<'de> + std::fmt::Debug {}
 impl TFREvent for ParsedTFREvent {}
 impl TFREvent for RawTFREvent {}
@@ -189,7 +202,7 @@ async fn process_feed(keywords: &[String]) -> Result<Vec<ParsedTFREvent>> {
                     event.parsed = Some(parsed.clone());
 
                     let searchable_text = format!(
-                        "{} {} {} {} {} {} {} {} {} {}",
+                        "{} {} {} {} {} {} {} {} {} {} {}",
                         parsed.notam_id.clone(),
                         parsed.location,
                         parsed.reason,
@@ -199,7 +212,8 @@ async fn process_feed(keywords: &[String]) -> Result<Vec<ParsedTFREvent>> {
                         parsed.other_info,
                         parsed.airspace.center,
                         parsed.airspace.altitude,
-                        parsed.description
+                        parsed.description,
+                        parsed.url
                     )
                     .to_lowercase();
 
@@ -242,7 +256,7 @@ fn extract_text(element: &scraper::ElementRef) -> String {
         .join(" ")
 }
 
-/// Parses detailed NOTAM HTML into structured NotamDetail.
+/// Parse detailed html into ParsedTFREvent
 pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
     let document = Html::parse_document(html_text);
     let table_selector = Selector::parse("table").unwrap();
@@ -296,6 +310,7 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
                 if row_text.contains("Type") {
                     detail.r#type = extract_text(tds.last().unwrap());
                 }
+                // Todo: link with replaced 
                 if row_text.contains("Replaced NOTAM") {
                     detail.replaced = extract_text(tds.last().unwrap());
                 }
@@ -337,6 +352,12 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
             detail.other_info = table_text.clone();
         }
     }
+
+    // Add additional info manually
+    detail.url = format!(
+                "{}{}",
+                NOTAM_DETAIL_URL_PRETTY,
+                &detail.notam_id.replace("/", "_"));
 
     detail
 }
@@ -383,7 +404,7 @@ fn parse_date(date_str: &str) -> Option<DateTime<Utc>> {
     }
 }
 
-pub async fn refresh_tfr_results() -> Result<crate::FeedResult> {
+pub async fn refresh_tfr_results() -> Result<FeedResult> {
     use log::info;
 
     // Load previously seen events
@@ -410,7 +431,7 @@ pub async fn refresh_tfr_results() -> Result<crate::FeedResult> {
 
     let (today_total, city_count) = summarize_matched_events(&seen_matches);
 
-    Ok(crate::FeedResult {
+    Ok(FeedResult {
         events: seen_matches,
         unseen_count: unseen.len(),
         today_count: today_total,
