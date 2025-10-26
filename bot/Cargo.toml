@@ -1,12 +1,15 @@
 [package]
-name = "bot"
+name = "tfr_bot"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-core = { path = "../core" }
+tfr_core = { path = "../core" }
 tokio = { version = "1", features = ["full"] }
 dotenvy = "0.15"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+anyhow = "1.0.100"
+atproto = "0.1.0"
+chrono = "0.4.42"
