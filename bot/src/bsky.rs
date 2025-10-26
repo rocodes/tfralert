@@ -10,24 +10,15 @@ use chrono::Utc;
 use reqwest::blocking::Client;
 use serde_json::json;
 use std::env;
-use tfr_core::ParsedTFREvent;
 
 const BSKY_HANDLE: &str = "TODO";
-
-fn get_text(event: &ParsedTFREvent) -> String {
-    format!(
-        "{} {}: New TFR: {}",
-        event.location, event.issue_date, event.url
-    )
-}
 
 // See https://docs.bsky.app/blog/create-post
 // we just use the accessJwt, which is short-lived, but that's okay
 // for a single post
-fn post_bksy(event: &ParsedTFREvent) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn post(text: &String) -> anyhow::Result<()> {
     let app_password = env::var("BLUESKY_APP_PASSWORD").expect("Need Bluesky app password");
 
-    let text = get_text(event);
     let client = Client::new();
 
     let session_resp = client

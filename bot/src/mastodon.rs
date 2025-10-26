@@ -8,18 +8,16 @@
 
 use reqwest::Client;
 use std::env;
-use tfr_core::ParsedTFREvent;
 
-pub async fn post(item: &ParsedTFREvent) -> anyhow::Result<()> {
+pub async fn post(text: &String) -> anyhow::Result<()> {
     let base_url = env::var("MASTODON_BASE_URL").expect("Need mastodon base url");
     let token = env::var("MASTODON_ACCESS_TOKEN").expect("Need mastodon access token");
     let client = Client::new();
 
-    let status = format!("New TFR {} in {}", item.notam_id, item.location);
     client
         .post(format!("{base_url}/api/v1/statuses"))
         .bearer_auth(token)
-        .form(&[("status", &status)])
+        .form(&[("status", text)])
         .send()
         .await?;
 

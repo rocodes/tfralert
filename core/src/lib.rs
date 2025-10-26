@@ -11,7 +11,12 @@ use log::{debug, error, info};
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fs, path::PathBuf};
+use std::{
+    collections::HashSet,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 
 const RAW_EVENT_CACHE: &str = "tfr_cache.json";
 const MATCHED_EVENT_CACHE: &str = "tfr_matches.json";
@@ -57,7 +62,6 @@ pub struct Airspace {
     pub altitude: String,
     pub effective: Vec<String>,
 }
-
 
 #[derive(Debug, Clone, Default)]
 pub struct FeedResult {
@@ -113,8 +117,9 @@ fn read_cache_file<T: TFREvent>(path: &str) -> Vec<T> {
 }
 
 fn write_cache_file<T: TFREvent>(path: &str, data: &[T]) -> Result<()> {
-    let serialized = serde_json::to_string_pretty(data)?;
-    fs::write(path, serialized)?;
+    let buf = serde_json::to_vec_pretty(data)?;
+    let mut cache_file = File::options().create(true).append(true).open(path)?;
+    cache_file.write(&buf)?;
     Ok(())
 }
 
@@ -310,7 +315,7 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
                 if row_text.contains("Type") {
                     detail.r#type = extract_text(tds.last().unwrap());
                 }
-                // Todo: link with replaced 
+                // Todo: link with replaced
                 if row_text.contains("Replaced NOTAM") {
                     detail.replaced = extract_text(tds.last().unwrap());
                 }
@@ -355,9 +360,10 @@ pub fn parse_notam_html(html_text: &str) -> ParsedTFREvent {
 
     // Add additional info manually
     detail.url = format!(
-                "{}{}",
-                NOTAM_DETAIL_URL_PRETTY,
-                &detail.notam_id.replace("/", "_"));
+        "{}{}",
+        NOTAM_DETAIL_URL_PRETTY,
+        &detail.notam_id.replace("/", "_")
+    );
 
     detail
 }

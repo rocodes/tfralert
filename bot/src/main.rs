@@ -7,10 +7,16 @@
 // You should have received a copy of the GNU General Public License along with TFRAlert. If not, see <https://www.gnu.org/licenses/>.
 
 use anyhow;
-use std::env;
-use tfr_core::check_feed;
+use tfr_core::{ParsedTFREvent, check_feed};
 mod bsky;
 mod mastodon;
+
+fn get_text(event: &ParsedTFREvent) -> String {
+    format!(
+        "{} {}: New TFR: {}",
+        event.location, event.issue_date, event.url
+    )
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,8 +27,9 @@ async fn main() -> anyhow::Result<()> {
     // todo, stuff here like load from cache
 
     for item in items.iter().take(5) {
-        mastodon::post(&item).await?;
-        bksy::post(&item).await?;
+        let text = get_text(item);
+        mastodon::post(&text).await?;
+        bsky::post(&text).await?;
     }
 
     Ok(())
